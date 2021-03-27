@@ -3,11 +3,13 @@ Segmentation of micro and macro structures
 
 This repository contains those codes for performing image segmentation of Micro and Macro structures in CT Geo-rocks.
 
-1. Open
+1. Open [Unet_main](Unet_main.py) and modify paths:
 
-2. Modify paths
+    * Path_images
+    * Path_mask_1
+    * Path_mask_2
 
-3. Files saved after Runing:
+2. Files saved after Runing:
 
     * Database_sorted.csv
     * model-Unet_multiclass_1.json
