@@ -9,7 +9,7 @@ This repository contains those codes for performing image segmentation of Micro 
     * Path_mask_1
     * Path_mask_2
 
-2. Files saved after Runing:
+2. Files saved after Running:
 
     * Database_sorted.csv
     * model-Unet_multiclass_1.json
