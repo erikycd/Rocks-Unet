@@ -17,3 +17,4 @@ This repository contains those codes for performing image segmentation of Micro 
     * Results_history.csv
     * Results_metrics.csv
 
+    [Segmentation](Figure 1.png)
