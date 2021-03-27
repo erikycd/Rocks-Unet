@@ -60,36 +60,37 @@ print("GPU is", "available" if gpu else "NOT AVAILABLE")
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-import folders_masks
-from folders_masks import make_folders, rmv_folders, build_mask
+#import folders_masks
+from folders_masks import make_folders, rmv_folders, build_mask, mask_overlapping
 
-import data_generators
+#import data_generators
 from data_generators import my_traingenerator, my_validgenerator, my_testgenerator
 
-import unet_rocks
+#import unet_rocks
 from unet_rocks import get_unet_rocks
 
-import unet_bnsreenu
+#import unet_bnsreenu
 from unet_bnsreenu import multi_unet_model
 
-import tensor_test
+#import tensor_test
 from tensor_test import get_tensor, get_tensor_orig
 
-import metrics
+#import metrics
 from metrics import dice_coeff, jacard_coeff
 
-import color_plot
+#import color_plot
 from color_plot import mask_color_img
 
 
 #%% READ DATASET
 
-im_width = 256
-im_height = 256
+# Path_images = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Images/'
+# Path_mask_1 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Macro/'
+# Path_mask_2 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Micro/'
 
-Path_images = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Images/'
-Path_mask_1 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Macro/'
-Path_mask_2 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT/Micro/'
+Path_images = 'C:/Users/Erik/Google Drive/Images/Rocks_CT_Mix/Images/'
+Path_mask_1 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT_Mix/Macro/'
+Path_mask_2 = 'C:/Users/Erik/Google Drive/Images/Rocks_CT_Mix/Micro/'
 
 # Path_images = 'C:/Users/Erik/Google Drive/Images/MICCAI MRI/MICCAI MRI/Imagenes/'
 # Path_mask_1 = 'C:/Users/Erik/Google Drive/Images/MICCAI MRI/MICCAI MRI/VI/'
@@ -118,10 +119,17 @@ print('Sample mask 1:',Sample_mask_1.shape, Sample_mask_1.min(), Sample_mask_1.m
 print('Sample mask 2:',Sample_mask_2.shape, Sample_mask_2.min(), Sample_mask_2.max(),
       Sample_mask_2.dtype)
 
-print('Files images:',ids_images[0:5])
-print('Files mask 1:',ids_mask_1[0:5])
-print('Files mask 2:',ids_mask_2[0:5])
+Database = list(zip(ids_images , ids_mask_1 , ids_mask_2))
+Database = pd.DataFrame(Database, columns = ["Image","MACRO","Micro"])
+Database.head(5)
 
+Database_file = 'Database_sorted.csv'
+with open(Database_file, mode='w') as f:
+    Database.to_csv(f)
+
+#%% CHECK OVERLAPPING
+
+mask_overlapping(Path_mask_1 , ids_mask_1 , Path_mask_2 , ids_mask_2)
 
 #%% SEPARATE DATABASE IN [TRAIN,VALID,TEST]
 
@@ -201,7 +209,7 @@ print('Sample training mask:',Sample_mask.shape, Sample_mask.min(), Sample_mask.
 #%% PLOTING SAMPLE FROM DATA GENERATORS
 
 batch_size = 4
-target_size = 256
+target_size = 640
 image_batch, mask_batch = next(my_traingenerator(target_size,batch_size))
 
 print('Image batch size type: ', image_batch.shape, image_batch.dtype, image_batch.min(), image_batch.max())
@@ -215,13 +223,15 @@ print('Image type: ',b.shape, b.dtype, b.min(), b.max())
 plt.imshow(b, cmap='gray')
 plt.xticks([])
 plt.yticks([])
+plt.title('Sample image with batch generator')
 
 plt.subplot(1,2,2)
 a = mask_batch[label,:,:,0]
 print('Mask type: ',a.shape, a.dtype, a.min(), a.max())
-plt.imshow(np.uint8(a), cmap='gray')
+plt.imshow(np.uint8(a), cmap='bone')
 plt.xticks([])
 plt.yticks([])
+plt.title('Sample mask with batch generator')
 
 plt.show()
 
@@ -237,10 +247,16 @@ model.compile(optimizer = tf.keras.optimizers.Adam(lr=0.005),
               metrics = ['sparse_categorical_accuracy']
               )
 
+# Serialize model to JSON
+model_json = model.to_json()
+with open("model-Unet_multiclass_1.json", "w") as json_file:
+    json_file.write(model_json)
+
 #%% TRAIN UNET
 
-epochs = 2
-target_size = 256
+epochs = 3
+batch_size = 4
+target_size = 640
 
 callbacks = [
     #EarlyStopping(patience=10, verbose=1),
@@ -270,7 +286,7 @@ plt.plot(historial.history["val_loss"], label="val_loss")
 plt.plot( np.argmin(historial.history["val_loss"]), np.min(historial.history["val_loss"]), 
          marker="x", color="r", label="best model")
 plt.xlabel("Epochs")
-plt.ylabel("log_loss")
+plt.ylabel("Loss")
 plt.legend();
 
 plt.figure(figsize=(7,5))
@@ -282,27 +298,28 @@ plt.ylabel('Accuracy')
 plt.legend();
 
 hist_df = pd.DataFrame(historial.history) 
-hist_csv_file = 'Results.csv'
+hist_csv_file = 'Results_history.csv'
 with open(hist_csv_file, mode='w') as f:
     hist_df.to_csv(f)
 
 
 #%% DO INFERENCE ON TEST DATA
 
-x_test, y_test = get_tensor('/tmp_dataset/test_imgs/data/','/tmp_dataset/test_masks/data/', 256 , 256)
+# x_test, y_test = get_tensor('/tmp_dataset/test_imgs/data/','/tmp_dataset/test_masks/data/', 640 , 640)
+# x_test_norm = (x_test - np.mean(x_test))/(np.std(x_test)) # Batch normalization
+# predicted_label = model.predict(x_test_norm)
+# print('x_test:',x_test.shape, x_test.dtype, x_test.min(), x_test.max())
+# print('x_test_norm:',x_test_norm.shape, x_test_norm.dtype, x_test_norm.min(), x_test_norm.max())
+# print('y_test:',y_test.shape, y_test.dtype, y_test.min(), y_test.max())
+
+Test_names, x_test, y_test = next(my_testgenerator(640))
+predicted_label = model.predict_generator(x_test)
 print('x_test:',x_test.shape, x_test.dtype, x_test.min(), x_test.max())
-print('y_test:',y_test.shape, y_test.dtype, y_test.min(), y_test.max())
-
-# Batch normalization x_eval
-x_test_norm = (x_test - np.mean(x_test))/(np.std(x_test))
-
-print('x_test_norm:',x_test_norm.shape, x_test_norm.dtype, x_test_norm.min(), x_test_norm.max())
 print('y_test:',y_test.shape, y_test.dtype, y_test.min(), y_test.max())
 
 # Evaluate on validation set (this must be equals to the best log_loss)
 #model.evaluate(my_validgenerator(), verbose=1)
 
-predicted_label = model.predict(x_test_norm)
 print('Predicted label shape: ',predicted_label.shape, predicted_label.dtype, predicted_label.min(), predicted_label.max())
 predicted_mask = to_categorical(np.argmax(predicted_label, -1), dtype='uint8')
 print('Predicted mask shape: ',predicted_mask.shape, predicted_mask.dtype, predicted_mask.min(), predicted_mask.max())
@@ -325,7 +342,7 @@ plt.yticks([])
 plt.subplot(1,3,2)
 b = y_test[label,:,:,0]
 print('Mask: ',b.shape, b.dtype, b.min(), b.max())
-plt.imshow(b, cmap='gray')
+plt.imshow(b, cmap='bone')
 plt.title("Annotations")
 plt.xticks([])
 plt.yticks([])
@@ -333,7 +350,7 @@ plt.yticks([])
 plt.subplot(1,3,3)
 c = predicted_mask[label,:,:,1] + 2.*(predicted_mask[label,:,:,2])
 print('Predicted mask: ',c.shape, c.dtype, c.min(), c.max())
-plt.imshow(c, cmap='gray')
+plt.imshow(c, cmap='bone')
 plt.title("Segmentation")
 plt.xticks([])
 plt.yticks([])
@@ -364,10 +381,22 @@ print('Jacard per image_class_1:',Jacard_class_1)
 print('Jacard mean class 2:',Jacard_class_2.mean())
 print('Jacard per image_class_2:',Jacard_class_2)
 
+#%% SAVING METRIC RESULTS
+
+Table_A = [Dice_class_1, Dice_class_2, Jacard_class_1, Jacard_class_2]
+Results_metrics = pd.DataFrame(Table_A , columns = Test_names , 
+                               index = ['Dice 1','Dice 2','Jacard 1','Jacard 2'])
+Results_metrics = Results_metrics.transpose()
+print(Results_metrics)
+
+Results_metrics_file = 'Results_metrics.csv'
+with open(Results_metrics_file, mode='w') as f:
+    Results_metrics.to_csv(f)
+
 
 #%% COLOR PLOT
 
-label = 4
+label = 0
 a = x_test[label,:,:,0]
 a = ( a- a.min())/(a.max() - a.min())
 Image_rgb = np.repeat(a[:, :, np.newaxis], 3, axis=2)
@@ -376,14 +405,14 @@ true_class_1 = y_test[label,:,:,0]==1
 true_class_2 = y_test[label,:,:,0]==2
 
 True_mask = mask_color_img(Image_rgb,true_class_1,[0,255,255],
-                           true_class_2,[100,0,200],alpha = 0.001)
+                           true_class_2,[100,0,200],alpha = 0.1)
 
 
 predicted_class_1 = predicted_mask[label,:,:,1]==1
 predicted_class_2 = predicted_mask[label,:,:,2]==1
 
 Predicted_mask = mask_color_img(Image_rgb,predicted_class_1,[0,255,255],
-                                predicted_class_2,[100,0,200],alpha = 0.001)
+                                predicted_class_2,[100,0,200],alpha = 0.1)
 
 
 plt.figure(figsize=(15,15))
